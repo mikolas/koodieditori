@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/glamour"
+	glamouransi "github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 )
@@ -12,6 +13,132 @@ import (
 // reTrailingMarginSpaces matches Glamour's trailing foreground-only space padding
 // (e.g. repeated "\x1b[38;5;252m \x1b[0m" or plain spaces at end of line).
 var reTrailingMarginSpaces = regexp.MustCompile(`(?:(?:\x1b\[(?:0|38;[0-9;]+|3[0-7]|9[0-7])m)* +(?:\x1b\[0m)*)+$`)
+
+func boolPtr(v bool) *bool       { return &v }
+func stringPtr(v string) *string { return &v }
+func uintPtr(v uint) *uint       { return &v }
+
+// monochromePreviewStyle returns a monochrome Glamour style configuration that uses
+// the terminal's normal text and background colors without syntax or background highlights,
+// relying solely on typographic text attributes (bold, italic, underline, strikethrough).
+func monochromePreviewStyle() glamouransi.StyleConfig {
+	const defaultMargin = 2
+	const defaultListIndent = 2
+
+	return glamouransi.StyleConfig{
+		Document: glamouransi.StyleBlock{
+			StylePrimitive: glamouransi.StylePrimitive{
+				BlockPrefix: "\n",
+				BlockSuffix: "\n",
+			},
+			Margin: uintPtr(defaultMargin),
+		},
+		BlockQuote: glamouransi.StyleBlock{
+			StylePrimitive: glamouransi.StylePrimitive{
+				Italic: boolPtr(true),
+			},
+			Indent:      uintPtr(1),
+			IndentToken: stringPtr("│ "),
+		},
+		Paragraph: glamouransi.StyleBlock{
+			StylePrimitive: glamouransi.StylePrimitive{},
+		},
+		List: glamouransi.StyleList{
+			LevelIndent: defaultListIndent,
+		},
+		Heading: glamouransi.StyleBlock{
+			StylePrimitive: glamouransi.StylePrimitive{
+				BlockSuffix: "\n",
+				Bold:        boolPtr(true),
+			},
+		},
+		H1: glamouransi.StyleBlock{
+			StylePrimitive: glamouransi.StylePrimitive{
+				Prefix:    "# ",
+				Bold:      boolPtr(true),
+				Underline: boolPtr(true),
+			},
+		},
+		H2: glamouransi.StyleBlock{
+			StylePrimitive: glamouransi.StylePrimitive{
+				Prefix: "## ",
+			},
+		},
+		H3: glamouransi.StyleBlock{
+			StylePrimitive: glamouransi.StylePrimitive{
+				Prefix: "### ",
+			},
+		},
+		H4: glamouransi.StyleBlock{
+			StylePrimitive: glamouransi.StylePrimitive{
+				Prefix: "#### ",
+			},
+		},
+		H5: glamouransi.StyleBlock{
+			StylePrimitive: glamouransi.StylePrimitive{
+				Prefix: "##### ",
+			},
+		},
+		H6: glamouransi.StyleBlock{
+			StylePrimitive: glamouransi.StylePrimitive{
+				Prefix: "###### ",
+			},
+		},
+		Text: glamouransi.StylePrimitive{},
+		Strikethrough: glamouransi.StylePrimitive{
+			CrossedOut: boolPtr(true),
+		},
+		Emph: glamouransi.StylePrimitive{
+			Italic: boolPtr(true),
+		},
+		Strong: glamouransi.StylePrimitive{
+			Bold: boolPtr(true),
+		},
+		HorizontalRule: glamouransi.StylePrimitive{
+			Format: "\n────────\n",
+		},
+		Item: glamouransi.StylePrimitive{
+			BlockPrefix: "• ",
+		},
+		Enumeration: glamouransi.StylePrimitive{
+			BlockPrefix: ". ",
+		},
+		Task: glamouransi.StyleTask{
+			StylePrimitive: glamouransi.StylePrimitive{},
+			Ticked:         "[✓] ",
+			Unticked:       "[ ] ",
+		},
+		Link: glamouransi.StylePrimitive{
+			Underline: boolPtr(true),
+		},
+		LinkText: glamouransi.StylePrimitive{
+			Bold: boolPtr(true),
+		},
+		Image: glamouransi.StylePrimitive{
+			Underline: boolPtr(true),
+		},
+		ImageText: glamouransi.StylePrimitive{
+			Format: "Image: {{.text}} →",
+		},
+		Code: glamouransi.StyleBlock{
+			StylePrimitive: glamouransi.StylePrimitive{},
+		},
+		CodeBlock: glamouransi.StyleCodeBlock{
+			StyleBlock: glamouransi.StyleBlock{
+				StylePrimitive: glamouransi.StylePrimitive{},
+				Margin:         uintPtr(defaultMargin),
+			},
+		},
+		Table: glamouransi.StyleTable{
+			StyleBlock: glamouransi.StyleBlock{
+				StylePrimitive: glamouransi.StylePrimitive{},
+			},
+		},
+		DefinitionDescription: glamouransi.StylePrimitive{
+			BlockPrefix: "\n* ",
+		},
+	}
+}
 
 // RenderPreview renders markdown content into terminal ANSI text using Glamour,
 // automatically rendering any embedded ```mermaid ``` code blocks into box-art diagrams.
@@ -34,7 +161,7 @@ func RenderPreview(content string, width int, mermaidMode MermaidMode) (string, 
 	})
 
 	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
+		glamour.WithStyles(monochromePreviewStyle()),
 		glamour.WithWordWrap(width),
 	)
 	if err != nil {

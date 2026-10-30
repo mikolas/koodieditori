@@ -1,12 +1,15 @@
 package markdown
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 )
+
+var reColorSGR = regexp.MustCompile(`\x1b\[[0-9;]*?(?:3[0-8]|4[0-8]|9[0-7]|10[0-7])(?:;[0-9]+)*m`)
 
 func TestRenderPreview(t *testing.T) {
 	doc := `# Project Roadmap
@@ -33,6 +36,45 @@ End of document.
 	}
 	if !strings.Contains(out, "Client") || !strings.Contains(out, "Server") {
 		t.Fatal("expected mermaid diagram nodes in rendered preview")
+	}
+}
+
+func TestRenderPreviewMonochromeTextStylingOnly(t *testing.T) {
+	doc := `# Heading One
+
+## Heading Two
+
+Paragraph with **bold text**, *italic text*, ` + "`inline_code()`" + `, and a [Link Title](https://example.com).
+
+> A blockquote line
+
+` + "```go" + `
+package main
+
+func main() {
+	println("hello")
+}
+` + "```" + `
+`
+	out, err := RenderPreview(doc, 80, MermaidModeBoxArt)
+	if err != nil {
+		t.Fatalf("unexpected error rendering preview: %v", err)
+	}
+
+	// Verify no foreground or background color SGR codes are emitted
+	if match := reColorSGR.FindString(out); match != "" {
+		t.Fatalf("expected monochrome preview without color SGR sequences, found %q in:\n%q", match, out)
+	}
+
+	// Verify typographic text styling (bold, italic, underline) is applied
+	if !strings.Contains(out, "\x1b[1m") && !strings.Contains(out, "\x1b[1;4m") && !strings.Contains(out, "\x1b[4;1m") {
+		t.Errorf("expected bold SGR styling in preview output, got:\n%q", out)
+	}
+	if !strings.Contains(out, "\x1b[3m") {
+		t.Errorf("expected italic SGR styling in preview output, got:\n%q", out)
+	}
+	if !strings.Contains(out, "\x1b[4m") && !strings.Contains(out, "\x1b[1;4m") && !strings.Contains(out, "\x1b[4;1m") {
+		t.Errorf("expected underline SGR styling in preview output, got:\n%q", out)
 	}
 }
 
